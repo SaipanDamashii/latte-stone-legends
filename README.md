@@ -1,3 +1,6 @@
+<img width="500" height="500" alt="lattestonelegendslogo" src="https://github.com/user-attachments/assets/41519d8f-bf9f-4588-94d1-e5676f427e18" />
+
+
 # Latte Stone Legends
 
 **A tropical strategy card game inspired by the people, places, wildlife, legends, and cultural heritage of the Mariana Islands.**
