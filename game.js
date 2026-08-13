@@ -889,7 +889,11 @@ if (this.textures.exists('title_logo')) {
         }).setOrigin(0.5).setInteractive();
         play.on('pointerover', () => play.setColor('#7fffa0'));
         play.on('pointerout',  () => play.setColor('#2ecc71'));
-        play.on('pointerdown', () => this.scene.start('MainScene'));
+        // Explicitly clear any launch data left behind by a previous Sudden
+        // Death replay so a new match always loads the player's saved deck.
+        play.on('pointerdown', () => this.scene.start('MainScene', {
+            suddenDeath: null
+        }));
 
         const deck = this.add.text(500, 480, '[ Deck ]', {
             fontSize: '36px', color: '#3498db', fontStyle: 'bold'
@@ -1170,7 +1174,9 @@ class MainScene extends Phaser.Scene {
             confirmLabel: '[ Confirm restart? ]',
             normalColor:  '#2ecc71',
             hoverColor:   '#7fffa0',
-            onConfirm:    () => this.scene.restart()
+            // Restart as a fresh match with the saved deck, not with any
+            // temporary cards controlled during a Sudden Death round.
+            onConfirm:    () => this.scene.restart({ suddenDeath: null })
         });
 
         const quit = this.add.text(230, 700, '[ Quit to Title ]', {
@@ -2401,7 +2407,9 @@ class CollectionScene extends Phaser.Scene {
             if (this.deck.length !== DECK_SIZE) return;
             this.saveData.deck = this.deck.slice();
             Collection.save(this.saveData);
-            this.scene.start('MainScene');
+            // Clear stale Sudden Death scene data so this newly saved deck is
+            // guaranteed to become the player's hand in the next match.
+            this.scene.start('MainScene', { suddenDeath: null });
         });
 
         // Back to title (also saves)
