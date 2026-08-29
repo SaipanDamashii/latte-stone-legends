@@ -199,6 +199,18 @@ const CARD_POOL = [
         "An ancient quarry on Rota where unfinished latte pillars and capstones reveal how the Ancient Chamorro people carved their monumental stone foundations."),
     def('house_of_taga', 'House of Taga', 'UNCOMMON', { top: 7, right: 5, bottom: 5, left: 4 },
         "The largest set of latte stones in the Marianas, on Tinian — said to be the home of the legendary Chief Taga."),
+    def('abandoned_lafiesta', 'Abandoned La Fiesta Mall', 'UNCOMMON', { top: 5, right: 6, bottom: 5, left: 5 },
+        "Once Saipan's sprawling open-air shopping destination, La Fiesta closed in 2004 and became an eerie, overgrown monument to the island's vanished tourism boom."),
+    def('abandoned_radar', 'Abandoned Pacific Barrier Radar III', 'UNCOMMON', { top: 6, right: 5, bottom: 6, left: 4 },
+        "A former U.S. Air Force radar tracking station atop Mt. Petosukara, built during the Cold War to watch the skies over the Pacific and abandoned in the 1990s."),
+    def('bomb_pits', 'Atomic Bomb Pits', 'UNCOMMON', { top: 7, right: 5, bottom: 6, left: 4 },
+        "Historic pits at Tinian's North Field where the atomic bombs Little Boy and Fat Man were loaded aboard B-29s before the missions over Hiroshima and Nagasaki in 1945."),
+    def('imperial_pacific', 'Imperial Pacific Resort', 'UNCOMMON', { top: 6, right: 6, bottom: 4, left: 5 },
+        "An unfinished casino-resort towering over Garapan — a remnant of Saipan's short-lived casino boom, marked by grand ambitions, labor controversy, and stalled construction."),
+    def('old_lighthouse', 'Old Japanese Lighthouse', 'UNCOMMON', { top: 5, right: 4, bottom: 6, left: 6 },
+        "Built atop Navy Hill in 1934 to guide ships toward Tanapag Harbor, this surviving Japanese-era lighthouse endured the Battle of Saipan and decades of abandonment."),
+    def('tinian_dynasty', 'Tinian Dynasty', 'UNCOMMON', { top: 6, right: 5, bottom: 4, left: 6 },
+        "Opened in 1998 as Tinian's landmark hotel-casino, the Dynasty once anchored the island's tourism ambitions before closing in 2015 amid financial and regulatory turmoil."),
 
 
     // --- Rare: legends & cultural figures (historical / traditional) ------
@@ -239,9 +251,13 @@ const CARD_POOL = [
     def('wendy_doromal', 'Wendy Doromal', 'ELITE', { top: 9, right: 4, bottom: 10, left: 8 },
         "A human-rights advocate who documented the exploitation of CNMI guest workers and carried their stories to Washington. Her decades of testimony and activism helped build the case for federal immigration reform."),
     def('boni_sagana', 'Boni Sagana', 'ELITE', { top: 4, right: 10, bottom: 8, left: 9 },
-        "A leader of Dekada and a prominent organizer in the CNMI guest-worker movement. He helped mobilize long-term foreign workers in their campaign for dignity, legal protection, and permanent status."),
+    "A leader of Dekada and prominent organizer in the CNMI guest-worker movement who fought for dignity, legal protection, and permanent status. His legacy was later soiled by controversy after his federal conviction for conspiring to unlawfully produce a CNMI driver's license."),
     def('itos_feliciano', 'Itos Feliciano', 'ELITE', { top: 8, right: 9, bottom: 4, left: 10 },
-        "A longtime foreign-worker organizer who helped his community understand and advocate for immigration reform. He became a vital link between proposed legislation and the people whose futures depended upon it.")
+        "A longtime foreign-worker organizer who helped his community understand and advocate for immigration reform. He became a vital link between proposed legislation and the people whose futures depended upon it."),
+    def('benigno_fitial', 'Benigno Fitial', 'ELITE', { top: 10, right: 9, bottom: 6, left: 6 },
+        "A two-term governor whose political career collapsed amid impeachment and public-corruption charges. He pleaded guilty to misconduct in public office and conspiracy to commit theft of services, becoming the CNMI's first governor convicted of crimes committed in office."),
+    def('ralph_torres', 'Ralph Torres', 'ELITE', { top: 6, right: 10, bottom: 9, left: 6 },
+        "A former governor whose administration became engulfed in controversy over public spending, government-funded travel, and allegations of misconduct. Impeached by the House in 2022, he later faced criminal charges that were ultimately dismissed under a disputed civil settlement.")
 ];
 
 
