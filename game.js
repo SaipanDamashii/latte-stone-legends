@@ -841,6 +841,7 @@ class BootScene extends Phaser.Scene {
         this.load.image('title_logo', 'assets/title-logo.png');
         this.load.audio('theme_music',      ['assets/theme.ogg',      'assets/theme.mp3']);
         this.load.audio('battle_music',     ['assets/battle-music.ogg', 'assets/battle-music.mp3']);
+        this.load.audio('sudden_death_music', ['assets/sudden-death.ogg', 'assets/sudden-death.mp3']);
         this.load.audio('compendium_music', ['assets/compendium.ogg', 'assets/compendium.mp3']);
 
         // Load art for EVERY card in the pool. The key is the card id,
@@ -1126,7 +1127,12 @@ class MainScene extends Phaser.Scene {
      create() {
         addBackground(this, 'game_bg', 0.3);
         addGameBoard(this, 'game_board');
-        MusicManager.play(this, 'battle_music');
+
+        // Sudden Death rounds get their own soundtrack.
+        MusicManager.play(
+            this,
+            this.suddenDeathData ? 'sudden_death_music' : 'battle_music'
+        );
 
         // Persistent match logo below the grid, above the board artwork.
         // The guard keeps the match playable even if the optional asset
