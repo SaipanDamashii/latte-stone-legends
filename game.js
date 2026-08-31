@@ -102,11 +102,11 @@ const HAND_GAP = 120;
 
 // ---- Card Pool ------------------------------------------------------------
 //
-// NOTE: "Elite" cards are named after real people in the CNMI community.
-// To avoid ranking real individuals, EVERY elite card shares an identical
-// power budget: one 'A' (10) side, one 9 side, and a total of exactly 31.
-// Only the *arrangement* of sides differs, so all elite cards are mechanically
-// equal. This is a personal/tribute project; for public release, seek consent.
+// Card values follow a Triple-Triad-style progression across rarity tiers:
+// Common cards span lower monster-style levels, Uncommon cards use stronger
+// boss-style values, Rare cards use high-tier values, and Elite cards use
+// endgame-style value profiles. Side values may therefore vary substantially
+// within a rarity; no rarity has a fixed total-power budget.
 
 // Rarity tiers
 const RARITY = {
@@ -130,139 +130,149 @@ function def(id, name, rarity, sides, flavor = '') {
     };
 }
 
-// Validate an elite card meets the fixed budget (one 10, one 9, total 31)
-function assertEliteBudget(card) {
-    const s = [card.top, card.right, card.bottom, card.left];
-    const total = s.reduce((a, b) => a + b, 0);
-    const hasA = s.filter(v => v === 10).length === 1;
-    const has9 = s.filter(v => v === 9).length >= 1;
-    if (total !== 31 || !hasA || !has9) {
-        console.warn(`Elite card "${card.name}" breaks budget:`, s, 'total', total);
-    }
-}
-
 const CARD_POOL = [
 
     // --- Common: CNMI flora, fauna, everyday life -------------------------
-    def('coconut_crab', 'Coconut Crab', 'COMMON', { top: 4, right: 3, bottom: 5, left: 2 },
+    def('coconut_crab', 'Coconut Crab', 'COMMON', { top: 7, right: 7, bottom: 4, left: 2 },
         "The largest land-living arthropod on Earth. Known locally as 'ayuyu,' it can crack open coconuts with its powerful claws."),
-    def('fruit_bat', 'Fruit Bat', 'COMMON', { top: 3, right: 5, bottom: 2, left: 4 },
+    def('fruit_bat', 'Fruit Bat', 'COMMON', { top: 5, right: 3, bottom: 7, left: 6 },
         "The Mariana fruit bat, or 'fanihi,' is a culturally significant and protected species in the CNMI."),
-    def('flame_tree', 'Flame Tree', 'COMMON', { top: 5, right: 2, bottom: 4, left: 3 },
+    def('flame_tree', 'Flame Tree', 'COMMON', { top: 7, right: 5, bottom: 4, left: 3 },
         "The 'trongkon Atbot' bursts into brilliant red-orange blooms in early summer, painting the islands in fire."),
-    def('reef_fish', 'Reef Fish', 'COMMON', { top: 2, right: 4, bottom: 3, left: 5 },
+    def('reef_fish', 'Reef Fish', 'COMMON', { top: 5, right: 2, bottom: 5, left: 3 },
         "The coral reefs of the Marianas teem with vibrant fish, a cornerstone of local diet and tradition."),
-    def('betel_nut', 'Betel Nut', 'COMMON', { top: 4, right: 4, bottom: 3, left: 3 },
+    def('betel_nut', 'Betel Nut', 'COMMON', { top: 5, right: 6, bottom: 2, left: 4 },
         "The areca nut, or 'pugua,' is chewed across the islands — a social tradition passed down through generations."),
-    def('carabao', 'Carabao', 'COMMON', { top: 6, right: 3, bottom: 4, left: 2 },
+    def('carabao', 'Carabao', 'COMMON', { top: 6, right: 5, bottom: 6, left: 5 },
         "The water buffalo was long a farmer's steadfast companion, a symbol of rural island life and hard work."),
-    def('breadfruit', 'Breadfruit', 'COMMON', { top: 3, right: 4, bottom: 4, left: 3 },
+    def('breadfruit', 'Breadfruit', 'COMMON', { top: 3, right: 5, bottom: 5, left: 5 },
         "The 'lemmai' is a staple food across the Marianas — roasted, boiled, or fried, it has sustained island families for generations."),
-    def('taro', 'Taro', 'COMMON', { top: 4, right: 3, bottom: 3, left: 4 },
+    def('taro', 'Taro', 'COMMON', { top: 4, right: 4, bottom: 5, left: 2 },
         "The 'suni' is a hardy root crop grown in island gardens and wetlands, a dependable source of nourishment."),
-    def('mango', 'Mango', 'COMMON', { top: 5, right: 3, bottom: 3, left: 3 },
+    def('mango', 'Mango', 'COMMON', { top: 3, right: 4, bottom: 5, left: 3 },
         "When mango season arrives, island trees hang heavy with sweet golden fruit — a beloved taste of home."),
-    def('gecko', 'House Gecko', 'COMMON', { top: 3, right: 4, bottom: 3, left: 4 },
+    def('gecko', 'House Gecko', 'COMMON', { top: 1, right: 4, bottom: 1, left: 5 },
         "The chirping 'guali'ek' is a familiar nighttime companion on every island porch and ceiling."),
-    def('hermit_crab', 'Hermit Crab', 'COMMON', { top: 4, right: 3, bottom: 4, left: 3 },
+    def('hermit_crab', 'Hermit Crab', 'COMMON', { top: 2, right: 1, bottom: 4, left: 4 },
         "Scuttling along beaches in borrowed shells, the 'umang' is a small but constant presence in island life."),
-    def('coconut_tree', 'Coconut Tree', 'COMMON', { top: 3, right: 5, bottom: 3, left: 3 },
+    def('coconut_tree', 'Coconut Tree', 'COMMON', { top: 4, right: 5, bottom: 5, left: 6 },
         "The 'niyok' provides food, drink, oil, and material — the tree of life for Pacific island peoples."),
-    def('kingfisher', 'Mariana Kingfisher', 'COMMON', { top: 4, right: 4, bottom: 4, left: 2 },
+    def('kingfisher', 'Mariana Kingfisher', 'COMMON', { top: 7, right: 6, bottom: 5, left: 3 },
         "The 'sihek,' a jewel-toned kingfisher found only in the Marianas. Once extinct in the wild, it survives through dedicated conservation efforts."),
-    def('monitor_lizard', 'Monitor Lizard', 'COMMON', { top: 5, right: 4, bottom: 3, left: 2 },
+    def('monitor_lizard', 'Monitor Lizard', 'COMMON', { top: 4, right: 6, bottom: 2, left: 7 },
         "The 'hilitai' patrols island jungles and roadsides — an introduced reptile that has become part of the landscape."),
+    def('plumeria', 'Plumeria', 'COMMON', { top: 5, right: 1, bottom: 1, left: 3 },
+        "Fragrant plumeria blossoms are a familiar sight in island gardens, their white, yellow, and pink flowers often gathered for leis and floral decorations."),
+    def('hibiscus', 'Hibiscus', 'COMMON', { top: 1, right: 3, bottom: 3, left: 5 },
+        "Brilliant hibiscus flowers flourish across the Marianas, bringing vivid tropical color to gardens, roadsides, and island landscapes."),
+    def('guava', 'Guava', 'COMMON', { top: 4, right: 2, bottom: 4, left: 3 },
+        "A familiar fruit of island backyards and thickets, guava is enjoyed fresh or transformed into juices, jams, jellies, and other treats."),
+    def('totot', 'Marianas Fruit-Dove', 'COMMON', { top: 6, right: 2, bottom: 7, left: 3 },
+        "Known in Chamorro as 'totot,' the colorful Marianas fruit-dove is native to the Mariana Islands, feeding among the forest canopy on the fruits of island trees."),
+    def('binadu', 'Philippine Deer', 'COMMON', { top: 7, right: 4, bottom: 4, left: 4 },
+        "Known in Chamorro as 'binådu,' Philippine deer were introduced to the Marianas during the Spanish era as a food source and remain part of the islands' hunting tradition."),
+    def('babalati', 'Sea Cucumber', 'COMMON', { top: 3, right: 6, bottom: 4, left: 4 },
+        "Known in Chamorro as 'båbalåti,' these slow-moving reef dwellers feed on organic matter along the seafloor and play an important role in the Marianas' marine ecosystems."),
+    def('pupulu', 'Pepper Leaf', 'COMMON', { top: 5, right: 6, bottom: 3, left: 3 },
+        "Known as 'pupulu,' the pepper leaf is traditionally combined with pugua and afok in the centuries-old Chamorro practice of betel-nut chewing."),
+    def('papaya', 'Papaya', 'COMMON', { top: 5, right: 3, bottom: 3, left: 4 },
+        "Papaya trees thrive in island yards and gardens, producing abundant tropical fruit enjoyed ripe or prepared green in countless dishes."),
+    def('haggan', 'Green Sea Turtle', 'COMMON', { top: 5, right: 2, bottom: 4, left: 3 },
+        "Known as 'haggan' in Chamorro and 'wong mool' in Carolinian, the endangered green sea turtle nests and forages throughout the Mariana Archipelago."),
+    def('noni', 'Noni', 'COMMON', { top: 7, right: 2, bottom: 7, left: 4 },
+        "Recognizable by its pale, pungent fruit, noni grows readily in the tropical islands of the Pacific and has a long history of traditional use."),
+    def('tangan_tangan', 'Tangan-Tangan', 'COMMON', { top: 7, right: 5, bottom: 1, left: 3 },
+        "Fast-growing tangan-tangan forms dense thickets across the Marianas, becoming one of the most conspicuous introduced plants in the islands' modern landscape."),
+    def('tuninos', 'Spinner Dolphin', 'COMMON', { top: 6, right: 6, bottom: 2, left: 7 },
+        "A year-round coastal resident of the Marianas, the spinner dolphin travels in social groups and is famous for its spectacular spinning leaps above the sea."),
 
 
     // --- Uncommon: places & landmarks -------------------------------------
-    def('managaha', 'Managaha Island', 'UNCOMMON', { top: 6, right: 5, bottom: 4, left: 6 },
+    def('managaha', 'Managaha Island', 'UNCOMMON', { top: 5, right: 6, bottom: 6, left: 8 },
         "A tiny islet off Saipan ringed by white sand and turquoise water — a beloved spot for swimming and remembrance."),
-    def('latte_stone', 'Latte Stone', 'UNCOMMON', { top: 7, right: 4, bottom: 6, left: 4 },
+    def('latte_stone', 'Latte Stone', 'UNCOMMON', { top: 7, right: 7, bottom: 2, left: 8 },
         "Ancient pillars ('haligi') topped with capstones ('tasa') that once supported Chamorro homes. An enduring symbol of the Marianas."),
-    def('grotto', 'The Grotto', 'UNCOMMON', { top: 5, right: 6, bottom: 5, left: 6 },
+    def('grotto', 'The Grotto', 'UNCOMMON', { top: 8, right: 6, bottom: 7, left: 3 },
         "A collapsed limestone cavern on Saipan filled with crystal-blue seawater — one of the world's premier dive sites."),
-    def('birdisland', 'Bird Island', 'UNCOMMON', { top: 6, right: 6, bottom: 5, left: 4 },
+    def('birdisland', 'Bird Island', 'UNCOMMON', { top: 7, right: 2, bottom: 8, left: 5 },
         "A protected limestone islet off Saipan's northeast coast, a sanctuary for seabirds and a breathtaking lookout."),
-    def('suicide_cliff', 'Suicide Cliff', 'UNCOMMON', { top: 7, right: 5, bottom: 4, left: 5 },
+    def('suicide_cliff', 'Suicide Cliff', 'UNCOMMON', { top: 6, right: 8, bottom: 4, left: 7 },
         "A solemn site from the final days of WWII on Saipan, now a place of memorial and reflection."),
-    def('mt_tapochau', 'Mt. Tapochau', 'UNCOMMON', { top: 6, right: 4, bottom: 7, left: 4 },
+    def('mt_tapochau', 'Mt. Tapochau', 'UNCOMMON', { top: 8, right: 5, bottom: 2, left: 8 },
         "The highest point on Saipan at 1,555 feet, offering a 360-degree view of the entire island."),
-    def('forbidden_island', 'Forbidden Island', 'UNCOMMON', { top: 6, right: 5, bottom: 5, left: 5 },
+    def('forbidden_island', 'Forbidden Island', 'UNCOMMON', { top: 6, right: 8, bottom: 4, left: 5 },
         "A remote, rugged peninsula on Saipan's east coast, reached by a steep trail down to a hidden natural pool and reef."),
-    def('american_memorial', 'American Memorial Park', 'UNCOMMON', { top: 5, right: 6, bottom: 5, left: 5 },
+    def('american_memorial', 'American Memorial Park', 'UNCOMMON', { top: 6, right: 5, bottom: 8, left: 4 },
         "A park in Garapan honoring the American and Marianas people who died in the WWII Marianas campaign."),
-    def('taga_beach', 'Taga Beach', 'UNCOMMON', { top: 5, right: 5, bottom: 6, left: 5 },
+    def('taga_beach', 'Taga Beach', 'UNCOMMON', { top: 7, right: 8, bottom: 3, left: 4 },
         "A picturesque cove on Tinian with limestone cliffs and clear water, a favorite spot for cliff-jumping and swimming."),
-    def('kalabera_cave', 'Kalabera Cave', 'UNCOMMON', { top: 6, right: 4, bottom: 6, left: 5 },
+    def('kalabera_cave', 'Kalabera Cave', 'UNCOMMON', { top: 8, right: 3, bottom: 5, left: 8 },
         "A limestone cave on Saipan bearing ancient Chamorro pictographs — a window into the islands' deep past."),
-    def('latte_stone_quarry', 'Latte Stone Quarry', 'UNCOMMON', { top: 5, right: 6, bottom: 4, left: 6 },
+    def('latte_stone_quarry', 'Latte Stone Quarry', 'UNCOMMON', { top: 5, right: 7, bottom: 8, left: 5 },
         "An ancient quarry on Rota where unfinished latte pillars and capstones reveal how the Ancient Chamorro people carved their monumental stone foundations."),
-    def('house_of_taga', 'House of Taga', 'UNCOMMON', { top: 7, right: 5, bottom: 5, left: 4 },
+    def('house_of_taga', 'House of Taga', 'UNCOMMON', { top: 8, right: 8, bottom: 4, left: 4 },
         "The largest set of latte stones in the Marianas, on Tinian — said to be the home of the legendary Chief Taga."),
-    def('abandoned_lafiesta', 'Abandoned La Fiesta Mall', 'UNCOMMON', { top: 5, right: 6, bottom: 5, left: 5 },
+    def('abandoned_lafiesta', 'Abandoned La Fiesta Mall', 'UNCOMMON', { top: 1, right: 8, bottom: 8, left: 3 },
         "Once Saipan's sprawling open-air shopping destination, La Fiesta closed in 2004 and became an eerie, overgrown monument to the island's vanished tourism boom."),
-    def('abandoned_radar', 'Abandoned Pacific Barrier Radar III', 'UNCOMMON', { top: 6, right: 5, bottom: 6, left: 4 },
+    def('abandoned_radar', 'Abandoned Pacific Barrier Radar III', 'UNCOMMON', { top: 4, right: 8, bottom: 7, left: 3 },
         "A former U.S. Air Force radar tracking station atop Mt. Petosukara, built during the Cold War to watch the skies over the Pacific and abandoned in the 1990s."),
-    def('bomb_pits', 'Atomic Bomb Pits', 'UNCOMMON', { top: 7, right: 5, bottom: 6, left: 4 },
+    def('bomb_pits', 'Atomic Bomb Pits', 'UNCOMMON', { top: 8, right: 8, bottom: 5, left: 4 },
         "Historic pits at Tinian's North Field where the atomic bombs Little Boy and Fat Man were loaded aboard B-29s before the missions over Hiroshima and Nagasaki in 1945."),
-    def('imperial_pacific', 'Imperial Pacific Resort', 'UNCOMMON', { top: 6, right: 6, bottom: 4, left: 5 },
+    def('imperial_pacific', 'Imperial Pacific Resort', 'UNCOMMON', { top: 1, right: 8, bottom: 4, left: 8 },
         "An unfinished casino-resort towering over Garapan — a remnant of Saipan's short-lived casino boom, marked by grand ambitions, labor controversy, and stalled construction."),
-    def('old_lighthouse', 'Old Japanese Lighthouse', 'UNCOMMON', { top: 5, right: 4, bottom: 6, left: 6 },
+    def('old_lighthouse', 'Old Japanese Lighthouse', 'UNCOMMON', { top: 7, right: 5, bottom: 8, left: 1 },
         "Built atop Navy Hill in 1934 to guide ships toward Tanapag Harbor, this surviving Japanese-era lighthouse endured the Battle of Saipan and decades of abandonment."),
-    def('tinian_dynasty', 'Tinian Dynasty', 'UNCOMMON', { top: 6, right: 5, bottom: 4, left: 6 },
+    def('tinian_dynasty', 'Tinian Dynasty', 'UNCOMMON', { top: 2, right: 8, bottom: 8, left: 4 },
         "Opened in 1998 as Tinian's landmark hotel-casino, the Dynasty once anchored the island's tourism ambitions before closing in 2015 amid financial and regulatory turmoil."),
 
 
     // --- Rare: legends & cultural figures (historical / traditional) ------
-    def('chief_taga', 'Chief Taga', 'RARE', { top: 8, right: 6, bottom: 7, left: 5 },
+    def('chief_taga', 'Chief Taga', 'RARE', { top: 10, right: 8, bottom: 2, left: 6 },
         "A legendary Chamorro chief of immense strength, said to have been a giant who single-handedly raised the great latte stones of Tinian."),
-    def('taotaomona', 'Taotaomona', 'RARE', { top: 7, right: 7, bottom: 6, left: 6 },
+    def('taotaomona', 'Taotaomona', 'RARE', { top: 3, right: 1, bottom: 10, left: 10 },
         "The spirits of the ancestors ('taotao mo'na' — people of before) who dwell in the jungle. Respect them, or face their wrath."),
-    def('sirena', 'Sirena', 'RARE', { top: 6, right: 8, bottom: 5, left: 7 },
+    def('sirena', 'Sirena', 'RARE', { top: 8, right: 9, bottom:6, left: 2 },
         "A girl transformed into a mermaid by her mother's curse. A beloved Marianas legend of love, freedom, and consequence."),
-    def('master_navigator', 'Master Navigator', 'RARE', { top: 8, right: 5, bottom: 7, left: 6 },
+    def('master_navigator', 'Master Navigator', 'RARE', { top: 2, right: 9, bottom: 9, left: 4 },
         "Carolinian wayfinders who crossed vast oceans guided only by stars, swells, and birds — keepers of ancient seafaring wisdom."),
-    def('refaluwasch', 'Refaluwasch Elder', 'RARE', { top: 7, right: 6, bottom: 8, left: 5 },
+    def('refaluwasch', 'Refaluwasch Elder', 'RARE', { top: 4, right: 4, bottom: 8, left: 9 },
         "An elder of the Refaluwasch (Carolinian) people, carriers of a distinct language, dance, and canoe-building heritage."),
-    def('chamorro_healer', 'Chamorro Healer', 'RARE', { top: 6, right: 7, bottom: 6, left: 7 },
+    def('chamorro_healer', 'Chamorro Healer', 'RARE', { top: 6, right: 7, bottom: 4, left: 9 },
         "The 'suruhanu' or 'suruhana' — traditional healers who use island plants and inherited knowledge to treat the sick."),
-    def('puntan', 'Puntan', 'RARE', { top: 6, right: 7, bottom: 6, left: 7 },
+    def('puntan', 'Puntan', 'RARE', { top: 4, right: 4, bottom: 9, left: 10 },
         "The Chamorro creator deity whose body became the earth, sky, sun, moon, and sea — his final gift formed the world."),
-    def('fuuna', 'Fu\'una', 'RARE', { top: 7, right: 6, bottom: 7, left: 6 },
+    def('fuuna', 'Fu\'una', 'RARE', { top: 7, right: 2, bottom: 7, left: 10 },
         "Puntan's sister and co-creator, who brought the world to life and became Fouha Rock, from which the first people emerged."),
-    def('chief_aghurubw', 'Chief Aghurubw', 'RARE', { top: 6, right: 6, bottom: 7, left: 7 },
+    def('chief_aghurubw', 'Chief Aghurubw', 'RARE', { top: 8, right: 10, bottom: 3, left: 5 },
         "A Refaluwasch chief and navigator who led settlers from Satawal to Saipan in 1815 and established the village of Arabwal."),
-    def('duendes', 'Duendes', 'RARE', { top: 7, right: 7, bottom: 5, left: 7 },
+    def('duendes', 'Duendes', 'RARE', { top: 9, right: 6, bottom: 7, left: 3 },
         "Mischievous little forest spirits of Marianas folklore, known to hide things, play tricks, and lead the unwary astray."),
 
 
-    // --- Elite: real community figures (equal budget: one 10, one 9, sum 31)
-    // Arrangements are unique but mechanically identical in total power.
+    // --- Elite: real community figures ------------------------------------
+    // Elite cards use Level-10-style value profiles; totals and arrangements vary.
     def('ed_propst', 'Ed Propst', 'ELITE', { top: 10, right: 5, bottom: 9, left: 7 },
         "An outspoken legislator who made government accountability and opposition to corruption central to his public career. His willingness to challenge the political establishment made him a leading voice for reform in the modern CNMI."),
     def('tina_sablan', 'Tina Sablan', 'ELITE', { top: 9, right: 10, bottom: 5, left: 7 },
         "An environmental advocate, reform-minded legislator, and the first woman nominated for governor by a major CNMI political party. Her principled leadership earned her recognition as a conscience of the Commonwealth."),
     def('glen_hunter', 'Glen Hunter', 'ELITE', { top: 7, right: 9, bottom: 10, left: 5 },
         "An entrepreneur and grassroots activist who helped pioneer the CNMI's contemporary anti-corruption movement. Through civic organizing and public advocacy, he challenged the culture of silence surrounding entrenched political power."),
-    def('analee_villagomez', 'Analee Villagomez', 'ELITE', { top: 5, right: 7, bottom: 9, left: 10 },
+    def('analee_villagomez', 'Analee Villagomez', 'ELITE', { top: 4, right: 10, bottom: 2, left: 10 },
         "A traditional artist, shell carver, and advocate for the Northern Islands. Her work preserves Indigenous Chamorro artistry and carries ancestral knowledge into the present."),
-    def('angelo_villagomez', 'Angelo Villagomez', 'ELITE', { top: 10, right: 8, bottom: 9, left: 4 },
+    def('angelo_villagomez', 'Angelo Villagomez', 'ELITE', { top: 8, right: 5, bottom: 10, left: 6 },
         "A Chamorro conservationist who led the grassroots campaign to protect the Mariana Trench. His work helped establish the Mariana Trench Marine National Monument and carried Indigenous-led ocean conservation onto the world stage."),
-    def('wendy_doromal', 'Wendy Doromal', 'ELITE', { top: 9, right: 4, bottom: 10, left: 8 },
+    def('wendy_doromal', 'Wendy Doromal', 'ELITE', { top: 9, right: 6, bottom: 10, left: 2 },
         "A human-rights advocate who documented the exploitation of CNMI guest workers and carried their stories to Washington. Her decades of testimony and activism helped build the case for federal immigration reform."),
-    def('boni_sagana', 'Boni Sagana', 'ELITE', { top: 4, right: 10, bottom: 8, left: 9 },
+    def('boni_sagana', 'Boni Sagana', 'ELITE', { top: 6, right: 9, bottom: 10, left: 4 },
     "A leader of Dekada and prominent organizer in the CNMI guest-worker movement who fought for dignity, legal protection, and permanent status. His legacy was later soiled by controversy after his federal conviction for conspiring to unlawfully produce a CNMI driver's license."),
-    def('itos_feliciano', 'Itos Feliciano', 'ELITE', { top: 8, right: 9, bottom: 4, left: 10 },
+    def('itos_feliciano', 'Itos Feliciano', 'ELITE', { top: 10, right: 8, bottom: 6, left: 4 },
         "A longtime foreign-worker organizer who helped his community understand and advocate for immigration reform. He became a vital link between proposed legislation and the people whose futures depended upon it."),
-    def('benigno_fitial', 'Benigno Fitial', 'ELITE', { top: 10, right: 9, bottom: 6, left: 6 },
+    def('benigno_fitial', 'Benigno Fitial', 'ELITE', { top: 6, right: 7, bottom: 6, left: 10 },
         "A two-term governor whose political career collapsed amid impeachment and public-corruption charges. He pleaded guilty to misconduct in public office and conspiracy to commit theft of services, becoming the CNMI's first governor convicted of crimes committed in office."),
-    def('ralph_torres', 'Ralph Torres', 'ELITE', { top: 6, right: 10, bottom: 9, left: 6 },
+    def('ralph_torres', 'Ralph Torres', 'ELITE', { top: 10, right: 7, bottom: 2, left: 8 },
         "A former governor whose administration became engulfed in controversy over public spending, government-funded travel, and allegations of misconduct. Impeached by the House in 2022, he later faced criminal charges that were ultimately dismissed under a disputed civil settlement.")
 ];
 
-
-// Run budget validation once at load
-CARD_POOL.forEach(c => { if (c.rarity === 'ELITE') assertEliteBudget(c); });
 
 // Quick lookup by id
 const CARD_BY_ID = {};
@@ -298,13 +308,9 @@ CARD_POOL.forEach(c => { CARD_BY_ID[c.id] = c; });
             }
         });
 
-        // 4. Elite budget — reuse the existing checker (one 10, one 9, sum 31)
-        if (card.rarity === 'ELITE') {
-            assertEliteBudget(card);
-        }
     });
 
-    // 5. Starter deck/collection must reference cards that actually exist
+    // 4. Starter deck/collection must reference cards that actually exist
     const starterIds = ['coconut_crab', 'fruit_bat', 'flame_tree',
                         'reef_fish', 'betel_nut', 'managaha'];
     starterIds.forEach(id => {
@@ -788,8 +794,9 @@ const Difficulty = {
         if (wins >= 8)  elites = 2;
         if (wins >= 15) elites = 3;
 
-        // Bump up if the player is running a high-power deck.
-        // Elite cards sum to 31; a deck averaging near that is "stacked".
+        // Bump up if the player is running a high-power deck. With the current
+        // tiered value curve, an average around 26 is Rare/Elite territory, while
+        // an average around 29 represents an exceptionally strong deck.
         if (power >= 26) elites += 1;
         if (power >= 29) elites += 1;
 
@@ -1263,7 +1270,7 @@ class MainScene extends Phaser.Scene {
         return deckIds.map(id => this.cloneCard(CARD_BY_ID[id]));
     }
 
-    // Build a random 5-card deck for the AI. ~25% chance to include one elite.
+    // Build a random 5-card AI deck; adaptive difficulty determines the Elite count.
     makeAiDeck() {
     const nonElite = CARD_POOL.filter(c => c.rarity !== 'ELITE');
     const elites   = CARD_POOL.filter(c => c.rarity === 'ELITE');
