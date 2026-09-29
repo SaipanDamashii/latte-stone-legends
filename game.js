@@ -116,6 +116,44 @@ const RARITY = {
     ELITE:    { name: 'Elite',    color: '#f1c40f' }
 };
 
+// ---- Elemental system -----------------------------------------------------
+// Elements are a separate tactical identity from rarity. When the optional
+// Elemental rule is active, matching a board space grants +1 to all sides;
+// a different element gives -1. Values always remain within 1..10.
+const ELEMENTS = {
+    ocean:  { name: 'Ocean',  asset: 'element_ocean',  color: '#39bff2' },
+    jungle: { name: 'Jungle', asset: 'element_jungle', color: '#69c83d' },
+    sun:    { name: 'Sun',    asset: 'element_sun',    color: '#f6b72c' },
+    wind:   { name: 'Wind',   asset: 'element_wind',   color: '#a9dcff' },
+    stone:  { name: 'Stone',  asset: 'element_stone',  color: '#c4b9a6' },
+    spirit: { name: 'Spirit', asset: 'element_spirit', color: '#b78cff' }
+};
+
+const CARD_ELEMENTS = {
+    coconut_crab:'ocean', fruit_bat:'jungle', flame_tree:'sun', reef_fish:'ocean',
+    betel_nut:'jungle', carabao:'jungle', breadfruit:'jungle', taro:'jungle', mango:'sun',
+    gecko:'jungle', hermit_crab:'ocean', coconut_tree:'wind', kingfisher:'wind',
+    monitor_lizard:'sun', plumeria:'sun', hibiscus:'sun', guava:'jungle', totot:'wind',
+    binadu:'jungle', babalati:'ocean', pupulu:'jungle', papaya:'sun', haggan:'ocean',
+    noni:'jungle', tangan_tangan:'jungle', tuninos:'ocean',
+
+    managaha:'ocean', latte_stone:'stone', grotto:'ocean', birdisland:'wind',
+    suicide_cliff:'stone', mt_tapochau:'wind', forbidden_island:'jungle',
+    american_memorial:'spirit', taga_beach:'ocean', kalabera_cave:'stone',
+    latte_stone_quarry:'stone', house_of_taga:'stone', abandoned_lafiesta:'jungle',
+    abandoned_radar:'wind', bomb_pits:'sun', imperial_pacific:'stone',
+    old_lighthouse:'wind', tinian_dynasty:'stone',
+
+    chief_taga:'stone', taotaomona:'spirit', sirena:'ocean', master_navigator:'wind',
+    refaluwasch:'wind', chamorro_healer:'jungle', puntan:'stone', fuuna:'spirit',
+    chief_aghurubw:'wind', duendes:'spirit',
+
+    ed_propst:'sun', tina_sablan:'ocean', glen_hunter:'stone', analee_villagomez:'spirit',
+    angelo_villagomez:'ocean', wendy_doromal:'wind', boni_sagana:'sun',
+    itos_feliciano:'wind', benigno_fitial:'stone', ralph_torres:'sun'
+};
+
+
 // Helper to define a card definition
 function def(id, name, rarity, sides, flavor = '') {
     return {
@@ -274,6 +312,9 @@ const CARD_POOL = [
 ];
 
 
+// Attach element metadata in one auditable place so card stat definitions stay tidy.
+CARD_POOL.forEach(card => { card.element = CARD_ELEMENTS[card.id] || null; });
+
 // Quick lookup by id
 const CARD_BY_ID = {};
 CARD_POOL.forEach(c => { CARD_BY_ID[c.id] = c; });
@@ -300,7 +341,12 @@ CARD_POOL.forEach(c => { CARD_BY_ID[c.id] = c; });
             fail(`Card "${card.id}" has unknown rarity: "${card.rarity}"`);
         }
 
-        // 3. Side values must be integers 1-10
+        // 3. Every card must have a known element
+        if (!card.element || !ELEMENTS[card.element]) {
+            fail(`Card "${card.id}" has missing/unknown element: "${card.element}"`);
+        }
+
+        // 4. Side values must be integers 1-10
         ['top', 'right', 'bottom', 'left'].forEach(side => {
             const v = card[side];
             if (!Number.isInteger(v) || v < 1 || v > 10) {
@@ -310,7 +356,7 @@ CARD_POOL.forEach(c => { CARD_BY_ID[c.id] = c; });
 
     });
 
-    // 4. Starter deck/collection must reference cards that actually exist
+    // 5. Starter deck/collection must reference cards that actually exist
     const starterIds = ['coconut_crab', 'fruit_bat', 'flame_tree',
                         'reef_fish', 'betel_nut', 'managaha'];
     starterIds.forEach(id => {
@@ -351,7 +397,7 @@ const Collection = {
             // Migrate saves that predate optional rules (merge in any missing keys)
             data.rules = Object.assign(
                 { same: false, plus: false, combo: false,
-                  wall: false, suddenDeath: false },
+                  wall: false, suddenDeath: false, elemental: false },
                 data.rules || {}
           );
 
@@ -393,7 +439,8 @@ const Collection = {
                 plus: false,
                 combo: false,
                 wall: false,        // <-- single toggle
-                suddenDeath: false
+                suddenDeath: false,
+                elemental: false
             }
         };
 
@@ -504,80 +551,205 @@ class CompendiumScene extends Phaser.Scene {
 
     // Full-screen detail popup for a single owned card
     showCardDetail(card) {
-        // A container holds everything so we can destroy it all at once on close
-        const popup = this.add.container(0, 0);
+        // Prevent stacked detail windows if a card is clicked twice quickly.
+        if (this.detailPopup) {
+            this.detailPopup.destroy();
+            this.detailPopup = null;
+        }
 
-        // Dark overlay that also captures clicks (so you can't click cards behind it)
-        const overlay = this.add.rectangle(500, 384, 1000, 768, 0x000000, 0.75)
+        const popup = this.add.container(0, 0).setDepth(1000);
+        this.detailPopup = popup;
+
+        // Define ALL escape routes before rendering optional/detail content.
+        // This keeps the Compendium recoverable even if a later visual fails.
+        let escKey = null;
+        const closePopup = () => {
+            if (escKey) {
+                escKey.removeAllListeners('down');
+                escKey = null;
+            }
+            if (this.artViewer) {
+                this.artViewer.destroy();
+                this.artViewer = null;
+            }
+            if (popup && popup.scene) popup.destroy();
+            if (this.detailPopup === popup) this.detailPopup = null;
+        };
+
+        // Dark backdrop captures clicks so cards behind the popup cannot fire.
+        const overlay = this.add.rectangle(500, 384, 1000, 768, 0x000000, 0.78)
             .setInteractive();
+        overlay.on('pointerdown', closePopup);
         popup.add(overlay);
 
         // Panel background
-        const panel = this.add.rectangle(500, 384, 560, 500, 0x2c3e50)
+        const panel = this.add.rectangle(500, 384, 600, 520, 0x2c3e50)
             .setStrokeStyle(4, Phaser.Display.Color.HexStringToColor(
                 RARITY[card.rarity].color).color);
         popup.add(panel);
 
-        // --- Big card visual on the left side of the panel ---
-        const cardX = 360;
-        const cardY = 320;
-        const bigCard = this.makeBigCard(cardX, cardY, card);
-        popup.add(bigCard);
+        // Always-available close controls.
+        const closeX = this.add.text(778, 142, 'X', {
+            fontSize: '24px', color: '#f1c40f', fontStyle: 'bold'
+        }).setOrigin(0.5).setInteractive();
+        closeX.on('pointerover', () => closeX.setColor('#ffffff'));
+        closeX.on('pointerout',  () => closeX.setColor('#f1c40f'));
+        closeX.on('pointerdown', closePopup);
+        popup.add(closeX);
 
-        // --- Card name (top of panel) ---
-        const nameText = this.add.text(500, 180, card.name, {
+        const close = this.add.text(500, 610, '[ Close ]', {
+            fontSize: '22px', color: '#f1c40f', fontStyle: 'bold'
+        }).setOrigin(0.5).setInteractive();
+        close.on('pointerover', () => close.setColor('#ffe680'));
+        close.on('pointerout',  () => close.setColor('#f1c40f'));
+        close.on('pointerdown', closePopup);
+        popup.add(close);
+
+        escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+        const detailEscHandler = () => {
+            // If the art viewer is open, its own Esc handler closes only that layer.
+            if (!this.artViewer) closePopup();
+        };
+        escKey.on('down', detailEscHandler);
+
+        // --- Card name / rarity ---
+        const nameText = this.add.text(500, 162, card.name, {
             fontSize: '30px', color: '#ffffff', fontStyle: 'bold',
             align: 'center', wordWrap: { width: 500 }
         }).setOrigin(0.5);
         popup.add(nameText);
 
-        // --- Rarity label ---
-        const rarityText = this.add.text(500, 214, RARITY[card.rarity].name, {
+        const rarityText = this.add.text(500, 198, RARITY[card.rarity].name, {
             fontSize: '18px', color: RARITY[card.rarity].color, fontStyle: 'bold'
         }).setOrigin(0.5);
         popup.add(rarityText);
 
-        // --- Owned count ---
+        // --- Big card visual ---
+        // Compendium cards show their BASE values. Elemental +/-1 applies only
+        // when a card occupies an elemental board cell during a match.
+        const bigCard = this.makeBigCard(370, 330, card);
+        popup.add(bigCard);
+
+        // Make the card artwork discoverably clickable for a full-art gallery view.
+        const artHit = this.add.rectangle(370, 330, 150, 185, 0xffffff, 0.001)
+            .setInteractive({ useHandCursor: true });
+        artHit.on('pointerover', () => bigCard.setScale(1.035));
+        artHit.on('pointerout',  () => bigCard.setScale(1));
+        artHit.on('pointerdown', () => this.showCardArtViewer(card));
+        popup.add(artHit);
+
+        const artHint = this.add.text(370, 438, 'Click card to enlarge art', {
+            fontSize: '11px', color: '#aaaaaa', fontStyle: 'italic'
+        }).setOrigin(0.5);
+        popup.add(artHint);
+
+        // --- Collection / power information ---
         const ownedCount = this.saveData.owned[card.id] || 0;
-        const ownedText = this.add.text(620, 300,
-            `Owned: ${ownedCount}`, {
+        const ownedText = this.add.text(625, 292, `Owned: ${ownedCount}`, {
             fontSize: '16px', color: '#cccccc'
         }).setOrigin(0.5);
         popup.add(ownedText);
 
-        // --- Stat total ---
         const total = card.top + card.right + card.bottom + card.left;
-        const statText = this.add.text(620, 330,
-            `Power: ${total}`, {
+        const statText = this.add.text(625, 322, `Power: ${total}`, {
             fontSize: '16px', color: '#cccccc'
         }).setOrigin(0.5);
         popup.add(statText);
 
-        // --- Flavor text (bottom of panel) ---
-        const flavorText = this.add.text(500, 470,
+        // --- Element information ---
+        const element = card.element ? ELEMENTS[card.element] : null;
+        if (element) {
+            if (this.textures.exists(element.asset)) {
+                const elementIcon = this.add.image(596, 365, element.asset)
+                    .setDisplaySize(42, 42);
+                popup.add(elementIcon);
+            }
+            const elementText = this.add.text(625, 365, `Element: ${element.name}`, {
+                fontSize: '17px', color: element.color, fontStyle: 'bold'
+            }).setOrigin(0, 0.5);
+            popup.add(elementText);
+        } else {
+            const elementText = this.add.text(625, 365, 'Element: None', {
+                fontSize: '17px', color: '#aaaaaa', fontStyle: 'bold'
+            }).setOrigin(0.5);
+            popup.add(elementText);
+        }
+
+        // --- Flavor text ---
+        const flavorText = this.add.text(500, 495,
             card.flavor || 'No description available.', {
             fontSize: '15px', color: '#dddddd', fontStyle: 'italic',
-            align: 'center', wordWrap: { width: 480 }, lineSpacing: 4
+            align: 'center', wordWrap: { width: 520 }, lineSpacing: 4
         }).setOrigin(0.5);
         popup.add(flavorText);
-
-        // --- Close button ---
-        const close = this.add.text(500, 590, '[ Close ]', {
-            fontSize: '22px', color: '#f1c40f', fontStyle: 'bold'
-        }).setOrigin(0.5).setInteractive();
-        close.on('pointerover', () => close.setColor('#ffe680'));
-        close.on('pointerout',  () => close.setColor('#f1c40f'));
-        popup.add(close);
-
-        // Close on button click OR clicking the dark overlay
-        const closePopup = () => popup.destroy();
-        close.on('pointerdown', closePopup);
-        overlay.on('pointerdown', closePopup);
     }
 
-    // A larger card visual for the detail popup
+    // Full-art viewer layered above the More Details popup.
+    // Clicking anywhere outside the artwork, or pressing Esc, returns to details.
+    showCardArtViewer(card) {
+        if (this.artViewer) return;
+        if (!this.textures.exists(card.id)) return;
+
+        const viewer = this.add.container(0, 0).setDepth(2000);
+        this.artViewer = viewer;
+
+        let artEscKey = null;
+        const closeViewer = () => {
+            if (artEscKey) {
+                artEscKey.removeAllListeners('down');
+                artEscKey = null;
+            }
+            if (viewer && viewer.scene) viewer.destroy();
+            if (this.artViewer === viewer) this.artViewer = null;
+        };
+
+        // This backdrop sits above More Details and is the click-out target.
+        const shade = this.add.rectangle(500, 384, 1000, 768, 0x000000, 0.90)
+            .setInteractive({ useHandCursor: true });
+        shade.on('pointerdown', closeViewer);
+        viewer.add(shade);
+
+        // Preserve the original card-art aspect ratio and fit it generously onscreen.
+        const texture = this.textures.get(card.id).getSourceImage();
+        const maxW = 500;
+        const maxH = 620;
+        const scale = Math.min(maxW / texture.width, maxH / texture.height);
+        const displayW = texture.width * scale;
+        const displayH = texture.height * scale;
+
+        const rarityColor = Phaser.Display.Color.HexStringToColor(
+            RARITY[card.rarity].color).color;
+        const frame = this.add.rectangle(500, 370, displayW + 12, displayH + 12, 0x111820)
+            .setStrokeStyle(4, rarityColor);
+        viewer.add(frame);
+
+        const art = this.add.image(500, 370, card.id)
+            .setDisplaySize(displayW, displayH)
+            .setInteractive();
+        // Consume clicks on the art itself so only clicking OUTSIDE closes the viewer.
+        art.on('pointerdown', (pointer, localX, localY, event) => {
+            if (event && event.stopPropagation) event.stopPropagation();
+        });
+        viewer.add(art);
+
+        const caption = this.add.text(500, 704, `${card.name}  •  Full Card Art`, {
+            fontSize: '18px', color: '#ffffff', fontStyle: 'bold'
+        }).setOrigin(0.5);
+        viewer.add(caption);
+
+        const hint = this.add.text(500, 734, 'Click outside the artwork to return', {
+            fontSize: '14px', color: '#bbbbbb', fontStyle: 'italic'
+        }).setOrigin(0.5);
+        viewer.add(hint);
+
+        artEscKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+        artEscKey.on('down', closeViewer);
+    }
+
+    // A larger card visual for the detail popup.
+    // Uses BASE card values because Compendium cards are not on a board cell.
     makeBigCard(x, y, card) {
-        const w = 130, h = 160;
+        const w = 150, h = 185;
         const rarityColor = Phaser.Display.Color.HexStringToColor(
             RARITY[card.rarity].color).color;
 
@@ -593,10 +765,10 @@ class CompendiumScene extends Phaser.Scene {
         }
 
         const numStyle = { fontSize: '24px', color: '#ffffff', fontStyle: 'bold' };
-        const top    = this.add.text(0, -h / 2 + 18, numToLabel(card.top), numStyle).setOrigin(0.5);
-        const bottom = this.add.text(0, h / 2 - 18, numToLabel(card.bottom), numStyle).setOrigin(0.5);
-        const left   = this.add.text(-w / 2 + 16, 0, numToLabel(card.left), numStyle).setOrigin(0.5);
-        const right  = this.add.text(w / 2 - 16, 0, numToLabel(card.right), numStyle).setOrigin(0.5);
+        const top    = this.add.text(0, -h / 2 + 20, numToLabel(card.top), numStyle).setOrigin(0.5);
+        const bottom = this.add.text(0, h / 2 - 20, numToLabel(card.bottom), numStyle).setOrigin(0.5);
+        const left   = this.add.text(-w / 2 + 18, 0, numToLabel(card.left), numStyle).setOrigin(0.5);
+        const right  = this.add.text(w / 2 - 18, 0, numToLabel(card.right), numStyle).setOrigin(0.5);
 
         children.push(top, bottom, left, right);
         return this.add.container(x, y, children);
@@ -774,42 +946,87 @@ const Difficulty = {
         return card.top + card.right + card.bottom + card.left;
     },
 
-    // Average power of a list of card ids (the player's deck).
+    // Average power of a list of card ids.
     deckPower(deckIds) {
         if (!deckIds.length) return 0;
-        const total = deckIds.reduce(
-            (sum, id) => sum + this.cardPower(CARD_BY_ID[id]), 0);
-        return total / deckIds.length;
+        const valid = deckIds.map(id => CARD_BY_ID[id]).filter(Boolean);
+        if (!valid.length) return 0;
+        const total = valid.reduce((sum, card) => sum + this.cardPower(card), 0);
+        return total / valid.length;
     },
 
-    // How many elites the AI should try to field this match.
-    // Driven by wins AND by how strong the player's deck is.
-    eliteCount(stats, playerDeckIds) {
-        const wins = stats.gamesWon;
-        const power = this.deckPower(playerDeckIds);
+    // Build an opponent deck from the strength of the FIVE cards the player
+    // actually brought into this match. Ownership, collection size, rarity
+    // unlocked, and lifetime wins do not increase the opponent's raw card power.
+    //
+    // Each equipped player card becomes one target. The AI gets a card with a
+    // nearby four-side total, chosen randomly from the closest few candidates so
+    // matches stay varied instead of becoming stat-for-stat mirrors.
+    matchedOpponentDeck(playerDeckIds) {
+        const playerCards = playerDeckIds
+            .map(id => CARD_BY_ID[id])
+            .filter(Boolean)
+            .slice(0, 5);
 
-        // Base tier from wins (0-based).
-        let elites = 0;
-        if (wins >= 3)  elites = 1;
-        if (wins >= 8)  elites = 2;
-        if (wins >= 15) elites = 3;
-
-        // Bump up if the player is running a high-power deck. With the current
-        // tiered value curve, an average around 26 is Rare/Elite territory, while
-        // an average around 29 represents an exceptionally strong deck.
-        if (power >= 26) elites += 1;
-        if (power >= 29) elites += 1;
-
-        // Ease off if the player is on a losing skid, so they can recover.
-        if (stats.currentStreak === 0 && stats.gamesLost > stats.gamesWon) {
-            elites = Math.max(0, elites - 1);
+        // Safety fallback for a corrupt/incomplete saved deck.
+        if (!playerCards.length) {
+            return Phaser.Utils.Array.Shuffle(CARD_POOL.slice())
+                .slice(0, 5)
+                .map(card => card.id);
         }
 
-        return Phaser.Math.Clamp(elites, 0, 4); // max = deck size - 1
+        const available = CARD_POOL.slice();
+        const picks = [];
+
+        playerCards.forEach(playerCard => {
+            const target = this.cardPower(playerCard);
+
+            // Sort remaining cards by distance from this player's card power.
+            // A tiny random tie-break keeps repeated matches from producing the
+            // exact same opposing hand every time.
+            const ranked = available
+                .map(card => ({
+                    card,
+                    distance: Math.abs(this.cardPower(card) - target),
+                    tie: Math.random()
+                }))
+                .sort((a, b) => a.distance - b.distance || a.tie - b.tie);
+
+            // Randomly choose among cards that are essentially equally suitable.
+            // Prefer +/- 1 total-power point; widen to +/- 2, then use the
+            // closest three only if the card pool has no near match.
+            let near = ranked.filter(x => x.distance <= 1);
+            if (!near.length) near = ranked.filter(x => x.distance <= 2);
+            if (!near.length) near = ranked.slice(0, 3);
+
+            const chosen = Phaser.Utils.Array.GetRandom(near).card;
+            picks.push(chosen.id);
+
+            // No duplicate cards in the AI hand.
+            const idx = available.findIndex(c => c.id === chosen.id);
+            if (idx >= 0) available.splice(idx, 1);
+        });
+
+        // A normal deck should always contain five cards. If an old/corrupt save
+        // supplied fewer than five valid player cards, fill the remainder around
+        // the player's average hand power rather than escalating by rarity.
+        const avgTarget = playerCards.reduce((sum, c) => sum + this.cardPower(c), 0)
+            / playerCards.length;
+        while (picks.length < 5 && available.length) {
+            const ranked = available
+                .map(card => ({ card, distance: Math.abs(this.cardPower(card) - avgTarget), tie: Math.random() }))
+                .sort((a, b) => a.distance - b.distance || a.tie - b.tie);
+            const chosen = Phaser.Utils.Array.GetRandom(ranked.slice(0, Math.min(3, ranked.length))).card;
+            picks.push(chosen.id);
+            available.splice(available.findIndex(c => c.id === chosen.id), 1);
+        }
+
+        return Phaser.Utils.Array.Shuffle(picks);
     },
 
-    // Chance (0-1) the AI plays "smart" (looks ahead) vs. greedy.
-    // Scales with wins so early games feel gentler.
+    // Win history affects HOW WELL the opponent plays, not how powerful a hand
+    // it is allowed to bring. This keeps experienced players challenged without
+    // punishing them for experimenting with weaker decks.
     lookaheadChance(stats) {
         const wins = stats.gamesWon;
         return Phaser.Math.Clamp(0.3 + wins * 0.05, 0.3, 0.9);
@@ -838,7 +1055,7 @@ class BootScene extends Phaser.Scene {
     preload() {
         // Simple loading text
         this.add.text(500, 384, 'Loading...', {
-            fontSize: '28px', color: '#ffffff'
+            fontSize: '24px', color: '#ffffff'
         }).setOrigin(0.5);
 
         // Background image (loaded once)
@@ -850,6 +1067,11 @@ class BootScene extends Phaser.Scene {
         this.load.audio('battle_music',     ['assets/battle-music.ogg', 'assets/battle-music.mp3']);
         this.load.audio('sudden_death_music', ['assets/sudden-death.ogg', 'assets/sudden-death.mp3']);
         this.load.audio('compendium_music', ['assets/compendium.ogg', 'assets/compendium.mp3']);
+
+        // Elemental rule icons
+        Object.values(ELEMENTS).forEach(el => {
+            this.load.image(el.asset, `assets/${el.asset}.png`);
+        });
 
         // Load art for EVERY card in the pool. The key is the card id,
         // so lookups are trivial later. Since all cards have art, we derive
@@ -989,7 +1211,7 @@ class RulesScene extends Phaser.Scene {
         this.saveData = Collection.load();
         // Work on a copy; commit when leaving
         this.rules = Object.assign(
-            { same: false, plus: false, combo: false },
+            { same: false, plus: false, combo: false, wall: false, suddenDeath: false, elemental: false },
             this.saveData.rules
         );
 
@@ -1017,7 +1239,7 @@ class RulesScene extends Phaser.Scene {
     {
         key: 'wall',
         title: 'WALL',
-        desc: "Board edges count as an A (10) for Same and Plus.\nHelps edge and corner placements trigger flips.\n(Requires Same or Plus.)"
+        desc: "Board edges count as an A (10) for Same and Plus.\nA Wall trigger must also involve a real adjacent card.\n(Requires Same or Plus.)"
     },
     {
         key: 'combo',
@@ -1027,15 +1249,20 @@ class RulesScene extends Phaser.Scene {
     {
     key: 'suddenDeath',
     title: 'SUDDEN DEATH',
-    desc: "If the match ends in a draw, replay it! Each side's\nnew deck is the cards they held at the end.\nRepeats until someone wins."
+    desc: "If the match ends in a draw, replay it! Each side's\nnew deck is the cards they held at the end. Repeats until someone wins."
+    },
+    {
+    key: 'elemental',
+    title: 'ELEMENTAL',
+    desc: "Some spaces gain random elements. Match the space for +1 to all sides;\nplace a different element there for -1. Values stay between 1 and A."
     }
 ];
 
 
         this.rowObjects = {};   // so we can refresh toggle labels
 
-        const startY = 165;
-        const rowGap = 105;
+        const startY = 150;
+        const rowGap = 88;
 
         this.ruleDefs.forEach((def, i) => {
             this.drawRuleRow(def, startY + i * rowGap);
@@ -1063,7 +1290,7 @@ class RulesScene extends Phaser.Scene {
 
         // Description
         this.add.text(120, y + 30, def.desc, {
-            fontSize: '14px', color: '#aaaaaa', lineSpacing: 3
+            fontSize: '13px', color: '#aaaaaa', lineSpacing: 2
         }).setOrigin(0, 0);
 
         // Toggle button (label set in refreshRows)
@@ -1155,9 +1382,17 @@ class MainScene extends Phaser.Scene {
         this.saveData = Collection.load();
         // Active optional rules for this match
         this.rules = Object.assign(
-            { same: false, plus: false, combo: false },
+            { same: false, plus: false, combo: false, wall: false, suddenDeath: false, elemental: false },
             this.saveData.rules
         );
+
+        // Elemental board layout. Sudden Death keeps the original layout because
+        // it is a continuation of the same match; a fresh match rolls a new one.
+        this.elementalBoard = this.rules.elemental
+            ? (this.suddenDeathData && this.suddenDeathData.elementalBoard
+                ? this.suddenDeathData.elementalBoard.slice()
+                : this.generateElementalBoard())
+            : Array(9).fill(null);
 
         // Game state
         this.board = [null, null, null, null, null, null, null, null, null];
@@ -1270,39 +1505,30 @@ class MainScene extends Phaser.Scene {
         return deckIds.map(id => this.cloneCard(CARD_BY_ID[id]));
     }
 
-    // Build a random 5-card AI deck; adaptive difficulty determines the Elite count.
+    // Build a 5-card AI deck matched to the player's CURRENT equipped hand.
+    // Card strength is independent of collection size and lifetime wins.
     makeAiDeck() {
-    const nonElite = CARD_POOL.filter(c => c.rarity !== 'ELITE');
-    const elites   = CARD_POOL.filter(c => c.rarity === 'ELITE');
+        const ids = Difficulty.matchedOpponentDeck(this.saveData.deck);
+        const picks = ids.map(id => this.cloneCard(CARD_BY_ID[id]));
 
-    const eliteCount = Difficulty.eliteCount(
-        this.saveData.stats, this.saveData.deck);
-    this.aiEliteCount = eliteCount;   // stash for badge/debug
+        // Store useful matchup diagnostics for the small in-game badge.
+        this.playerHandPower = Difficulty.deckPower(this.saveData.deck);
+        this.aiHandPower = picks.length
+            ? picks.reduce((sum, c) => sum + Difficulty.cardPower(c), 0) / picks.length
+            : 0;
+        this.aiEliteCount = picks.filter(c => c.rarity === 'ELITE').length;
 
-    const picks = [];
-
-    // Add elites without repeats (dedupe from a shuffled copy).
-    const elitePool = Phaser.Utils.Array.Shuffle(elites.slice());
-    for (let i = 0; i < eliteCount && i < elitePool.length; i++) {
-        picks.push(this.cloneCard(elitePool[i]));
+        return picks;
     }
-
-    // Fill the rest with non-elites.
-    while (picks.length < 5) {
-        picks.push(this.cloneCard(Phaser.Utils.Array.GetRandom(nonElite)));
-    }
-
-    Phaser.Utils.Array.Shuffle(picks);
-    return picks;
-}
 drawDifficultyBadge() {
     const s = this.saveData.stats;
-    const label = this.aiEliteCount > 0
-        ? `Opponent Elites: ${this.aiEliteCount}`
-        : 'Opponent: Standard';
+    const playerPower = Number.isFinite(this.playerHandPower)
+        ? this.playerHandPower.toFixed(1) : Difficulty.deckPower(this.saveData.deck).toFixed(1);
+    const aiPower = Number.isFinite(this.aiHandPower)
+        ? this.aiHandPower.toFixed(1) : '?';
 
     this.add.text(500, 645,
-        `Wins: ${s.gamesWon}  |  Streak: ${s.currentStreak}  |  ${label}`, {
+        `Wins: ${s.gamesWon}  |  Streak: ${s.currentStreak}  |  Hand Power: ${playerPower} vs ${aiPower}`, {
         fontSize: '16px', color: '#f1c40f'
     }).setOrigin(0.5);
 
@@ -1312,6 +1538,7 @@ if (this.rules.same)  active.push('Same');
 if (this.rules.plus)  active.push('Plus');
 if (this.rules.wall)  active.push('Wall');
 if (this.rules.combo) active.push('Combo');
+if (this.rules.elemental) active.push('Elemental');
 
     const rulesLabel = active.length > 0
         ? `Rules: ${active.join(' + ')}`
@@ -1332,9 +1559,35 @@ if (this.rules.combo) active.push('Combo');
 
     // Clone a card definition into a mutable hand/board card
     cloneCard(c) {
-        return { id: c.id, name: c.name, rarity: c.rarity,
+        return { id: c.id, name: c.name, rarity: c.rarity, element: c.element,
                  top: c.top, right: c.right, bottom: c.bottom, left: c.left };
         }
+
+    // Randomly mark 3-5 unique spaces for an Elemental match.
+    generateElementalBoard() {
+        const layout = Array(9).fill(null);
+        const indices = Phaser.Utils.Array.Shuffle([0,1,2,3,4,5,6,7,8]);
+        const keys = Object.keys(ELEMENTS);
+        const count = Phaser.Math.Between(3, 5);
+        for (let i = 0; i < count; i++) {
+            layout[indices[i]] = Phaser.Utils.Array.GetRandom(keys);
+        }
+        return layout;
+    }
+
+    // Modifier for a card occupying a particular board cell.
+    elementalModifier(card, cellIndex) {
+        if (!this.rules.elemental || cellIndex === null || cellIndex === undefined) return 0;
+        const spaceElement = this.elementalBoard[cellIndex];
+        if (!spaceElement) return 0;
+        return card.element === spaceElement ? 1 : -1;
+    }
+
+    // The single source of truth for battle values. All rules and AI simulations
+    // call this, preventing displayed and calculated numbers from diverging.
+    cardSideValue(card, cellIndex, side) {
+        return Phaser.Math.Clamp(card[side] + this.elementalModifier(card, cellIndex), 1, 10);
+    }
 
     // Draw the 9 empty grid cell backgrounds
     drawGridCells() {
@@ -1345,6 +1598,17 @@ if (this.rules.combo) active.push('Combo');
             const bg = this.add.rectangle(x, y, CARD_W, CARD_H, 0x000000, 0.15)
     .setStrokeStyle(2, 0xf1c40f, 0.4)   // subtle gold outline
     .setInteractive();
+
+            const elementKey = this.elementalBoard[i];
+            if (elementKey) {
+                const el = ELEMENTS[elementKey];
+                if (el && this.textures.exists(el.asset)) {
+                    this.add.image(x, y, el.asset)
+                        .setDisplaySize(54, 54)
+                        .setAlpha(0.52)
+                        .setDepth(-1);
+                }
+            }
 
             bg.on('pointerdown', () => this.tryPlaceCard(i));
             this.cellZones.push(bg);
@@ -1398,7 +1662,7 @@ if (this.rules.combo) active.push('Combo');
     }
 
  // Build a visual card (a Phaser container) at x,y
-    makeCardVisual(x, y, card, color) {
+    makeCardVisual(x, y, card, color, cellIndex = null) {
         const bg = this.add.rectangle(0, 0, CARD_W, CARD_H, color)
             .setStrokeStyle(2, 0x000000);
 
@@ -1411,13 +1675,50 @@ if (this.rules.combo) active.push('Combo');
             children.push(art);
         }
 
-        const style = { fontSize: '20px', color: '#ffffff', fontStyle: 'bold' };
-        const topText    = this.add.text(0, -CARD_H / 2 + 14, numToLabel(card.top), style).setOrigin(0.5);
-        const bottomText = this.add.text(0, CARD_H / 2 - 14, numToLabel(card.bottom), style).setOrigin(0.5);
-        const leftText   = this.add.text(-CARD_W / 2 + 12, 0, numToLabel(card.left), style).setOrigin(0.5);
-        const rightText  = this.add.text(CARD_W / 2 - 12, 0, numToLabel(card.right), style).setOrigin(0.5);
+        // Elemental board feedback. Keep the artwork clean: placed cards on an
+        // elemental space get only a compact +/-1 corner badge. Their displayed
+        // ranks below still use the effective Elemental-adjusted values.
+        const elementalMod = cellIndex === null ? 0 : this.elementalModifier(card, cellIndex);
+        if (elementalMod !== 0) {
+            const positive = elementalMod > 0;
+            const effectColor = positive ? 0x2ecc71 : 0xe74c3c;
+            const effectHex = positive ? '#72f59d' : '#ff8175';
+
+            // Tuck the badge into the lower-right corner, away from the rank values.
+            const badgeX = CARD_W / 2 - 14;
+            const badgeY = CARD_H / 2 - 14;
+            const badgeBg = this.add.circle(badgeX, badgeY, 11, 0x000000, 0.82)
+                .setStrokeStyle(2, effectColor, 1);
+            const badge = this.add.text(badgeX, badgeY, positive ? '+1' : '-1', {
+                fontSize: '10px', color: effectHex, fontStyle: 'bold'
+            }).setOrigin(0.5);
+            children.push(badgeBg, badge);
+        }
+
+        const valueColor = '#ffffff';
+        const style = {
+            fontSize: '20px', color: valueColor, fontStyle: 'bold',
+            stroke: elementalMod !== 0 ? '#000000' : undefined,
+            strokeThickness: elementalMod !== 0 ? 3 : 0
+        };
+        const shownTop    = cellIndex === null ? card.top    : this.cardSideValue(card, cellIndex, 'top');
+        const shownBottom = cellIndex === null ? card.bottom : this.cardSideValue(card, cellIndex, 'bottom');
+        const shownLeft   = cellIndex === null ? card.left   : this.cardSideValue(card, cellIndex, 'left');
+        const shownRight  = cellIndex === null ? card.right  : this.cardSideValue(card, cellIndex, 'right');
+        const topText    = this.add.text(0, -CARD_H / 2 + 14, numToLabel(shownTop), style).setOrigin(0.5);
+        const bottomText = this.add.text(0, CARD_H / 2 - 14, numToLabel(shownBottom), style).setOrigin(0.5);
+        const leftText   = this.add.text(-CARD_W / 2 + 12, 0, numToLabel(shownLeft), style).setOrigin(0.5);
+        const rightText  = this.add.text(CARD_W / 2 - 12, 0, numToLabel(shownRight), style).setOrigin(0.5);
 
         children.push(topText, bottomText, leftText, rightText);
+
+        // Small element badge. It stays visible on hand and board cards.
+        if (card.element && ELEMENTS[card.element] && this.textures.exists(ELEMENTS[card.element].asset)) {
+            const badge = this.add.image(0, -10, ELEMENTS[card.element].asset)
+                .setDisplaySize(22, 22)
+                .setAlpha(0.95);
+            children.push(badge);
+        }
 
         // Name label in the center (only if the card has a name)
         if (card.name) {
@@ -1476,7 +1777,7 @@ if (this.rules.combo) active.push('Combo');
                 this.showFlipBanner(step.index, step.reason + '!',
                     this.flipReasonColor(step.reason));
                 await this.animateFlip(step.index, step.to);
-                await this.wait(150);   // let the banner breathe on special flips
+                await this.wait(240);   // let the special-rule popup register before the next flip
             } else {
                 await this.animateFlip(step.index, step.to);
             }
@@ -1592,18 +1893,20 @@ computeFlips(startIndex) {
     if (this.rules.same) {
     // Real-neighbor matches...
     const matches = neighbors.filter(
-        n => placed.card[n.mySide] === n.card[n.theirSide]
+        n => this.cardSideValue(placed.card, startIndex, n.mySide) === this.cardSideValue(n.card, n.index, n.theirSide)
     );
 
     let wallMatches = 0;
     if (this.rules.wall) {
         this.getWallSides(startIndex).forEach(side => {
-            if (placed.card[side] === WALL) wallMatches++;
+            if (this.cardSideValue(placed.card, startIndex, side) === WALL) wallMatches++;
         });
     }
 
-    if (matches.length + wallMatches >= 2) {
-        // If a wall helped reach the threshold, call it "Same Wall".
+    // Same Wall may use a wall as one of the required matches, but the
+    // trigger must include at least one real neighboring card. Corner walls
+    // matching each other cannot create a special capture by themselves.
+    if (matches.length >= 1 && matches.length + wallMatches >= 2) {
         const reason = wallMatches > 0 ? 'Same Wall' : 'Same';
         matches.forEach(n => {
             if (n.owner !== owner && doFlip(n.index, reason)) {
@@ -1616,24 +1919,27 @@ computeFlips(startIndex) {
     if (this.rules.plus) {
         const sums = {};
         neighbors.forEach(n => {
-            const sum = placed.card[n.mySide] + n.card[n.theirSide];
+            const sum = this.cardSideValue(placed.card, startIndex, n.mySide) + this.cardSideValue(n.card, n.index, n.theirSide);
             (sums[sum] = sums[sum] || []).push(n);
         });
 
     if (this.rules.wall) {
         this.getWallSides(startIndex).forEach(side => {
-            const sum = placed.card[side] + WALL;
+            const sum = this.cardSideValue(placed.card, startIndex, side) + WALL;
             (sums[sum] = sums[sum] || []).push({ wall: true });
         });
     }
 
     Object.values(sums).forEach(group => {
-        if (group.length >= 2) {
-            // If any wall entry is in this group, it's "Plus Wall".
-            const usedWall = group.some(n => n.wall);
+        // A Plus/Plus Wall trigger must involve at least one REAL neighboring
+        // card. Two board edges are not allowed to manufacture a special
+        // trigger by matching only each other in a corner.
+        const realEntries = group.filter(n => !n.wall);
+        const wallEntries = group.filter(n => n.wall);
+        if (group.length >= 2 && realEntries.length >= 1) {
+            const usedWall = wallEntries.length > 0;
             const reason = usedWall ? 'Plus Wall' : 'Plus';
-            group.forEach(n => {
-                if (n.wall) return;
+            realEntries.forEach(n => {
                 if (n.owner !== owner && doFlip(n.index, reason)) {
                     specialFlips.add(n.index);
                 }
@@ -1646,7 +1952,7 @@ computeFlips(startIndex) {
     // --- Normal phase for the placed card (these do NOT seed combos) ---
     neighbors.forEach(n => {
         if (n.owner === owner) return;
-        if (placed.card[n.mySide] > n.card[n.theirSide]) {
+        if (this.cardSideValue(placed.card, startIndex, n.mySide) > this.cardSideValue(n.card, n.index, n.theirSide)) {
             doFlip(n.index, null);   // null = no special banner
         }
     });
@@ -1663,7 +1969,7 @@ computeFlips(startIndex) {
 
             attackerNeighbors.forEach(n => {
                 if (n.owner === owner) return;
-                if (attacker.card[n.mySide] > n.card[n.theirSide]) {
+                if (this.cardSideValue(attacker.card, attackerIndex, n.mySide) > this.cardSideValue(n.card, n.index, n.theirSide)) {
                 if (doFlip(n.index, 'Combo')) {
                     queue.push(n.index);
                     }
@@ -1733,7 +2039,7 @@ getWallSides(cellIndex) {
             if (!cell) return;
             const { x, y } = this.cellPosition(i);
             const color = cell.owner === 'red' ? RED : BLUE;
-            const visual = this.makeCardVisual(x, y, cell.card, color);
+            const visual = this.makeCardVisual(x, y, cell.card, color, i);
             this.boardGraphics.push(visual);
             this.boardVisualByIndex[i] = visual;
         });
@@ -1848,7 +2154,8 @@ getWallSides(cellIndex) {
             if (!neighbor) return;
             if (neighbor.owner === owner) return;
 
-            if (card[mySide] > neighbor.card[theirSide]) {
+            if (this.cardSideValue(card, cellIndex, mySide) >
+                this.cardSideValue(neighbor.card, nr * 3 + nc, theirSide)) {
                 flips++;
             }
         });
@@ -1878,6 +2185,9 @@ getWallSides(cellIndex) {
             // Flips this move would make, accounting for ALL active rules.
             const flips = this.simulateFlips(cellIndex, card, 'red');
             let score = flips * 10 + this.cellDefenseValue(cellIndex);
+            // Prefer matching elemental spaces and avoid mismatches when choices
+            // are otherwise similar. Actual flips are already computed with the modifier.
+            score += this.elementalModifier(card, cellIndex) * 3;
 
             // Smart mode: subtract the worst counter-flip the player could make.
             if (smart) {
@@ -1987,7 +2297,8 @@ showSuddenDeathTransition(roundNumber, next) {
                 suddenDeath: {
                     round: nextRound,
                     blueDeck: blueCards,
-                    redDeck: redCards
+                    redDeck: redCards,
+                    elementalBoard: this.elementalBoard.slice()
                 }
             });
         });
@@ -2024,26 +2335,78 @@ showSuddenDeathTransition(roundNumber, next) {
     });
 }
 
-// Floating text banner (e.g. "SAME!", "COMBO!") at a board cell, which
-// rises and fades. Used to explain WHY cards just flipped.
+// Punchy rule popup over a card whenever a special capture occurs.
+// SAME / PLUS / WALL variants / COMBO each inherit their own accent color.
 showFlipBanner(cellIndex, label, color) {
     const { x, y } = this.cellPosition(cellIndex);
+    const accent = Phaser.Display.Color.HexStringToColor(color).color;
 
-    const text = this.add.text(x, y, label, {
-        fontSize: '26px',
-        color: color,
+    // A compact plate keeps the rule readable even over bright card artwork.
+    const shadow = this.add.rectangle(3, 4, 112, 40, 0x000000, 0.58)
+        .setStrokeStyle(2, 0x000000, 0.35);
+    const plate = this.add.rectangle(0, 0, 112, 40, 0x08131f, 0.94)
+        .setStrokeStyle(3, accent, 1);
+    const flash = this.add.rectangle(0, 0, 120, 48, accent, 0)
+        .setStrokeStyle(3, accent, 0.9);
+
+    const text = this.add.text(0, -1, label, {
+        fontSize: label.length > 10 ? '19px' : '23px',
+        color: '#ffffff',
         fontStyle: 'bold',
         stroke: '#000000',
-        strokeThickness: 4
-    }).setOrigin(0.5).setDepth(900);
+        strokeThickness: 4,
+        align: 'center'
+    }).setOrigin(0.5);
+
+    // Tiny caption helps distinguish these from ordinary capture feedback.
+    const tag = this.add.text(0, 14, 'SPECIAL', {
+        fontSize: '8px',
+        color: color,
+        fontStyle: 'bold',
+        letterSpacing: 1
+    }).setOrigin(0.5);
+
+    const popup = this.add.container(x, y - 4, [shadow, flash, plate, text, tag])
+        .setDepth(1200)
+        .setScale(0.35)
+        .setAlpha(0);
+
+    // Pop in hard, settle, then float away. The flash ring expands separately
+    // so the capture reads even in a busy Combo chain.
+    this.tweens.add({
+        targets: popup,
+        scaleX: 1.12,
+        scaleY: 1.12,
+        alpha: 1,
+        duration: 115,
+        ease: 'Back.easeOut',
+        onComplete: () => {
+            this.tweens.add({
+                targets: popup,
+                scaleX: 1,
+                scaleY: 1,
+                duration: 90,
+                ease: 'Quad.easeOut'
+            });
+            this.tweens.add({
+                targets: popup,
+                y: y - 42,
+                alpha: 0,
+                delay: 500,
+                duration: 430,
+                ease: 'Cubic.easeIn',
+                onComplete: () => popup.destroy(true)
+            });
+        }
+    });
 
     this.tweens.add({
-        targets: text,
-        y: y - 50,          // float upward
-        alpha: 0,           // fade out
-        duration: 900,
-        ease: 'Cubic.easeOut',
-        onComplete: () => text.destroy()
+        targets: flash,
+        scaleX: 1.22,
+        scaleY: 1.35,
+        alpha: { from: 0.8, to: 0 },
+        duration: 360,
+        ease: 'Cubic.easeOut'
     });
 }
 
