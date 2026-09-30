@@ -2470,9 +2470,37 @@ class RewardScene extends Phaser.Scene {
                 RARITY[card.rarity].color).color;
 
             const visual = this.makeRewardCard(x, y, card, rarityColor);
+
+            // Show how many copies the player already owns before they choose.
+            // A never-owned card gets a more prominent NEW CARD! label instead.
+            const ownedCount = this.saveData.owned[id] || 0;
+            const ownershipLabel = ownedCount === 0
+                ? 'NEW CARD!'
+                : `OWNED ×${ownedCount}`;
+            const ownershipColor = ownedCount === 0
+                ? '#f1c40f'
+                : '#d7dde5';
+
+            const ownershipBg = this.add.rectangle(x, y + 84, 104, 24, 0x101820, 0.88)
+                .setStrokeStyle(2, ownedCount === 0 ? 0xf1c40f : 0x65727e)
+                .setDepth(20);
+            const ownershipText = this.add.text(x, y + 84, ownershipLabel, {
+                fontSize: ownedCount === 0 ? '13px' : '12px',
+                color: ownershipColor,
+                fontStyle: 'bold'
+            }).setOrigin(0.5).setDepth(21);
+
             visual.list[0].setInteractive();
-            visual.list[0].on('pointerover', () => visual.setScale(1.1));
-            visual.list[0].on('pointerout',  () => visual.setScale(1.0));
+            visual.list[0].on('pointerover', () => {
+                visual.setScale(1.1);
+                ownershipBg.setScale(1.05);
+                ownershipText.setScale(1.05);
+            });
+            visual.list[0].on('pointerout',  () => {
+                visual.setScale(1.0);
+                ownershipBg.setScale(1.0);
+                ownershipText.setScale(1.0);
+            });
             visual.list[0].on('pointerdown', () => this.captureCard(id, card));
         });
 
